@@ -1,0 +1,12 @@
+[target.aarch64-unknown-none]
+rustflags = [
+	"-C", "relocation-model=static",
+	"-C", "linker-flavor=ld.lld",
+	"-C", "link-arg=-Tsrc/efilite.lds",
+	"-C", "link-arg=--orphan-handling=error",
+	"-C", "target-feature=+rand,+bti",
+#	"-Z", "branch-protection=bti"
+]
+
+[build]
+target = "aarch64-unknown-none"

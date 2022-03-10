@@ -1,0 +1,20 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "mach-virt" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - run: rustup target add aarch64-unknown-none
+    - run: sudo apt-get update && sudo apt-get install -y lld
+    - name: Build
+      run: cargo build --verbose
