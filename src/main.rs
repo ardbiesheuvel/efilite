@@ -178,6 +178,7 @@ extern "C" fn efilite_main(base: *const u8, mapped: usize, used: usize, avail: u
     }
 
     let _initrd = efi::initrdloadfile2::new(&mut fwcfg);
+    let _rng = efi::rng::new();
 
     let mut li = efi::load_image(&pe_image, &cmdline, randomized);
     let ret = li.start_image();

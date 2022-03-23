@@ -33,6 +33,7 @@ mod simpletext;
 pub mod status;
 mod systemtable;
 mod tableheader;
+pub mod rng;
 
 pub type Bool = u8;
 pub type Char16 = u16;
