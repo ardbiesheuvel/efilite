@@ -4,6 +4,8 @@
 
 use core::arch::asm;
 
+const ID_AA64ISAR0_RNDR_SHIFT: usize = 60;
+
 const PSCI_1_0_PSCI_VERSION: u64 = 0x84000000;
 const PSCI_1_0_PSCI_FEATURES: u64 = 0x8400000a;
 
@@ -33,9 +35,42 @@ fn have_smccc() -> bool {
     hvc_call(PSCI_1_0_PSCI_FEATURES, ARM_SMCCC_VERSION) == 0
 }
 
+fn read_rndr() -> Option<u64> {
+    let mut l: u64;
+    unsafe {
+        asm!("mrs  {reg}, id_aa64isar0_el1",
+            reg = out(reg) l,
+            options(pure, nomem, nostack, preserves_flags)
+        );
+    }
+    if (l >> ID_AA64ISAR0_RNDR_SHIFT) & 0xf == 0 {
+        return None
+    }
+
+    let mut ret: u64;
+    unsafe {
+        asm!("mrs  {reg}, rndr",
+             "cset {ret}, ne",
+            reg = out(reg) l,
+            ret = out(reg) ret,
+            options(nomem, nostack)
+        );
+    }
+    if ret != 0 {
+        Some(l)
+    } else {
+        None
+    }
+}
+
 pub fn get_random_u64() -> Option<u64> {
     let mut ret: u64;
     let mut l: u64;
+
+    // Prefer RNDR if we have it
+    if let Some(l) = read_rndr() {
+        return Some(l)
+    }
 
     if !have_smccc() {
         return None
@@ -60,7 +95,7 @@ pub fn get_random_u64() -> Option<u64> {
     }
 }
 
-pub fn get_random_bytes(bytes: &mut[u8]) -> bool {
+pub fn get_entropy(bytes: &mut[u8]) -> bool {
     let mut b: &mut[u8] = bytes;
 
     if !have_smccc() {
