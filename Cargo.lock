@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "aarch64-intrinsics"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be8916da99ed756443d2664f45e30b9d45a422bdd45a3caf47309be05893ba8a"
+
+[[package]]
 name = "aarch64-paging"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -54,6 +60,7 @@ checksum = "9cace84e55f07e7301bae1c519df89cdad8cc3cd868413d3fdbdeca9ff3db484"
 name = "efilite"
 version = "0.1.0"
 dependencies = [
+ "aarch64-intrinsics",
  "aarch64-paging",
  "efiloader",
  "fdt",

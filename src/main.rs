@@ -33,6 +33,9 @@ use log::{debug, error, info};
 extern crate alloc;
 use alloc::vec::Vec;
 
+#[cfg(feature = "use_optimized_intrinsics")]
+extern crate aarch64_intrinsics;
+
 use aarch64_paging::paging::Attributes;
 
 use efiloader::*;

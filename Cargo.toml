@@ -14,6 +14,11 @@ spinning_top = "0.2.5"
 once_cell = { version = "1.18.0", default-features = false, features = ["alloc"]  }
 efiloader = "0.0.1"
 aarch64-paging = "0.5.0"
+aarch64-intrinsics = { version = "1.0.0", optional = true }
+
+[features]
+default = ["use_optimized_intrinsics"]
+use_optimized_intrinsics = ["dep:aarch64-intrinsics"]
 
 [profile.dev]
 panic = "abort"
