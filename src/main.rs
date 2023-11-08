@@ -38,10 +38,10 @@ extern crate aarch64_intrinsics;
 
 use aarch64_paging::paging::Attributes;
 
-use efiloader::*;
 use efiloader::memmap::*;
-use efiloader::memorytype::*;
 use efiloader::memorytype::EfiMemoryType::*;
+use efiloader::memorytype::*;
+use efiloader::*;
 
 const DTB_GUID: Guid = guid!(
     0xb1b621d5,

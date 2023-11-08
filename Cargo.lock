@@ -68,7 +68,6 @@ dependencies = [
  "log",
  "mmio",
  "once_cell",
- "spinning_top",
 ]
 
 [[package]]

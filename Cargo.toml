@@ -10,7 +10,6 @@ linked_list_allocator = "0.10.5"
 log = { version = "0.4.14", features = ["max_level_debug", "release_max_level_warn"] }
 mmio = "2.1.0"
 fdt = "0.1.5"
-spinning_top = "0.2.5"
 once_cell = { version = "1.18.0", default-features = false, features = ["alloc"]  }
 efiloader = "0.0.1"
 aarch64-paging = "0.5.0"

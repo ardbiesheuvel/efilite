@@ -3,12 +3,10 @@
 // Author: Ard Biesheuvel <ardb@google.com>
 
 use alloc::{boxed::*, collections::*, vec::*};
-use core::{fmt, marker::*, mem::*, pin::pin, slice, str::from_utf8, sync::atomic::*};
+use core::{cell::*, fmt, marker::*, mem::*, pin::pin, slice, str::from_utf8, sync::atomic::*};
 use efiloader::*;
 use efiloader::{memmap::*, memorytype::*};
 use mmio::*;
-use once_cell::race::*;
-use spinning_top::*;
 
 struct FwCfgMmio {
     // read-only data register
@@ -21,7 +19,13 @@ struct FwCfgMmio {
     dmacontrol: VolBox<u64, Deny, Allow>,
 }
 
-pub struct FwCfg(Spinlock<FwCfgMmio>);
+pub struct FwCfg(RefCell<FwCfgMmio>);
+
+// SAFETY: EFI boot services are single threaded, and FwCfg uses RefCells for interior mutability,
+// which ensures that mutable references taken from the same thread will cause a panic. Such
+// references can only be taken by the private API - no mutable FwCfg objects are exposed outside
+// of it.
+unsafe impl Sync for FwCfg {}
 
 const CFG_KERNEL_SIZE: u16 = 0x08;
 const CFG_KERNEL_DATA: u16 = 0x11;
@@ -78,7 +82,7 @@ impl<'a, T> FwCfgFileIterator<'a, T> {
         let len = self.count as usize;
         let mut v = Vec::<T>::with_capacity(len);
         let size = len * size_of::<T>();
-        let mut mmio = self.fwcfg.0.lock();
+        let mut mmio = self.fwcfg.0.borrow_mut();
 
         mmio.selector.write(u16::to_be(self.select));
         fence(Ordering::Release);
@@ -105,7 +109,7 @@ impl<T: Copy> Iterator for FwCfgFileIterator<'_, T> {
         let itemsz = size_of::<Self::Item>() as u32;
         let offset = self.offset + self.next * itemsz;
         let out = pin!(MaybeUninit::<T>::uninit());
-        let mut mmio = self.fwcfg.0.lock();
+        let mut mmio = self.fwcfg.0.borrow_mut();
 
         mmio.selector.write(u16::to_be(self.select));
         fence(Ordering::Release);
@@ -243,8 +247,7 @@ impl fmt::Debug for FwCfgLoaderEntry {
 
 impl FwCfg {
     fn attach(addr: *const u8) -> &'static FwCfg {
-        static FWCFG: OnceBox<FwCfg> = OnceBox::new();
-        FWCFG.get_or_init(|| Box::new(FwCfg(Spinlock::new(FwCfgMmio::new(addr)))))
+        Box::leak(Box::new(FwCfg(RefCell::new(FwCfgMmio::new(addr)))))
     }
 
     fn files(&self) -> FwCfgFileIterator<FwCfgFile> {
@@ -286,7 +289,7 @@ impl FwCfg {
         size: usize,
         config_item: u16,
     ) -> Result<(), ()> {
-        let mut mmio = self.0.lock();
+        let mut mmio = self.0.borrow_mut();
         mmio.selector.write(u16::to_be(config_item));
         fence(Ordering::Release);
 
@@ -297,7 +300,7 @@ impl FwCfg {
     }
 
     fn get_file_size(&self, size_cfg: u16) -> usize {
-        let mut mmio = self.0.lock();
+        let mut mmio = self.0.borrow_mut();
         mmio.selector.write(u16::to_be(size_cfg));
         fence(Ordering::Release);
         mmio.data.read() as usize

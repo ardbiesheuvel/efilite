@@ -2,32 +2,52 @@
 // Copyright 2022-2023 Google LLC
 // Author: Ard Biesheuvel <ardb@google.com>
 
+use core::cell::RefCell;
 use core::fmt::Write;
-use core::mem::MaybeUninit;
 use core::ops::Range;
 use fdt::node::FdtNode;
 use log::{Metadata, Record};
 use mmio::{Allow, Deny, VolBox};
-use spinning_top::Spinlock;
+use once_cell::unsync::OnceCell;
+
+struct DumbSerialConsoleWriter(VolBox<u32, Deny, Allow>);
+
+impl Write for DumbSerialConsoleWriter {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let out = &mut self.0;
+
+        for b in s.as_bytes().iter() {
+            if *b == b'\n' {
+                out.write(b'\r' as u32);
+            }
+            out.write(*b as u32)
+        }
+        Ok(())
+    }
+}
 
 pub struct DumbSerialConsole {
     pub base: usize,
-    out: Spinlock<VolBox<u32, Deny, Allow>>,
+    out: RefCell<DumbSerialConsoleWriter>,
 }
 
-struct DumbSerialConsoleWriter<'a> {
-    console: &'a DumbSerialConsole,
-}
+// SAFETY: DumbSerialConsole is only accessible via shared references, and its interior mutability
+// is implemented using a RefCell. EFI boot services are single threaded, and the only way we might
+// enter recursively is when a panic is triggered by a write to the log, which is why the log::Log
+// implementation uses try_borrow_mut().
+unsafe impl Sync for DumbSerialConsole {}
 
 pub fn init(base: &Range<usize>) -> &'static DumbSerialConsole {
     // Statically allocated so we can init the console before the heap
-    static mut CON: MaybeUninit<DumbSerialConsole> = MaybeUninit::uninit();
+    static mut CON: OnceCell<DumbSerialConsole> = OnceCell::new();
 
+    // SAFETY: the code is single threaded and does not recurse, so the first invocation will
+    // run to completion before this code is ever executed again.
     unsafe {
         let v = VolBox::<u32, Deny, Allow>::new(base.start as *mut u32);
-        CON.write(DumbSerialConsole {
+        CON.get_or_init(|| DumbSerialConsole {
             base: base.start,
-            out: Spinlock::new(v),
+            out: RefCell::new(DumbSerialConsoleWriter(v)),
         })
     }
 }
@@ -39,32 +59,13 @@ pub fn init_from_fdt_node(node: FdtNode) -> Option<&'static DumbSerialConsole> {
     Some(init(&(base..base + size)))
 }
 
-impl DumbSerialConsole {
-    fn puts(&self, s: &str) {
-        let mut out = self.out.lock();
-
-        for b in s.as_bytes().iter() {
-            if *b == b'\n' {
-                out.write(b'\r' as u32);
-            }
-            out.write(*b as u32)
-        }
-    }
-}
-
 impl efiloader::SimpleConsole for DumbSerialConsole {
     fn write_string(&self, s: &str) {
-        self.puts(s)
+        self.out.borrow_mut().write_str(s).ok();
     }
 
     fn read_byte(&self) -> Option<u8> {
         None
-    }
-}
-
-impl Write for DumbSerialConsoleWriter<'_> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        Ok(self.console.puts(s))
     }
 }
 
@@ -75,8 +76,9 @@ impl log::Log for DumbSerialConsole {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
-            let mut out = DumbSerialConsoleWriter { console: &self };
-            write!(&mut out, "efilite {} - {}", record.level(), record.args()).ok();
+            if let Ok(mut out) = self.out.try_borrow_mut() {
+                write!(out, "efilite {} - {}", record.level(), record.args()).ok();
+            }
         }
     }
 
