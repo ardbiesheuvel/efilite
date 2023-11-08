@@ -6,27 +6,27 @@ use aarch64_paging::{paging::*, *};
 use efiloader::memorytype::*;
 
 use alloc::vec::Vec;
+use core::cell::RefCell;
 use core::ops::Range;
-use spinning_top::Spinlock;
 
 const ASID: usize = 1;
 const PAGING_ROOT_LEVEL: usize = 1; // must match the page tables in flash
 
 pub(crate) struct MemoryMapper {
-    idmap: Spinlock<idmap::IdMap>,
+    idmap: RefCell<idmap::IdMap>,
     reserved: Vec<Range<usize>>,
 }
 
 impl MemoryMapper {
     pub(crate) fn new() -> MemoryMapper {
         MemoryMapper {
-            idmap: Spinlock::new(idmap::IdMap::new(ASID, PAGING_ROOT_LEVEL)),
+            idmap: RefCell::new(idmap::IdMap::new(ASID, PAGING_ROOT_LEVEL)),
             reserved: Vec::new(),
         }
     }
 
     pub(crate) fn activate(&mut self) {
-        unsafe { self.idmap.lock().activate() }
+        unsafe { self.idmap.borrow_mut().activate() }
     }
 
     fn match_efi_attributes(attributes: u64) -> Attributes {
@@ -52,7 +52,7 @@ impl MemoryMapper {
     pub(crate) fn map_range(&self, r: &Range<usize>, flags: Attributes) {
         let mr = MemoryRegion::new(r.start, r.end);
         self.idmap
-            .lock()
+            .borrow_mut()
             .map_range(&mr, flags)
             .unwrap_or_else(|e| log::error!("Failed to map range {e}\n"));
         log::info!("[{mr}] {flags:?}\n");
@@ -85,7 +85,7 @@ impl efiloader::MemoryMapper for MemoryMapper {
 
         let c = |_: &MemoryRegion, d: &mut Descriptor, _: usize| Ok(d.modify_flags(set, clr));
 
-        let mut idmap = self.idmap.lock();
+        let mut idmap = self.idmap.borrow_mut();
         idmap
             .modify_range(&r, &c)
             .or_else(|e| match e {
@@ -135,7 +135,7 @@ impl efiloader::MemoryMapper for MemoryMapper {
             }
         };
 
-        self.idmap.lock().walk_range(&r, &mut c).ok()?;
+        self.idmap.borrow().walk_range(&r, &mut c).ok()?;
         Some(Self::get_attr_from_flags(any.bits()))
     }
 }
