@@ -45,6 +45,7 @@ struct DmaTransfer {
     control: u32,
     length: u32,
     address: u64,
+    pin: PhantomPinned,
 }
 
 type FwCfgFilename = [u8; 56];
@@ -106,9 +107,17 @@ impl<T: Copy> Iterator for FwCfgFileIterator<'_, T> {
             return None;
         }
 
+        struct PinnedItem<T> {
+            item: MaybeUninit<T>,
+            _pin: PhantomPinned,
+        }
+
         let itemsz = size_of::<Self::Item>() as u32;
         let offset = self.offset + self.next * itemsz;
-        let out = pin!(MaybeUninit::<T>::uninit());
+        let out = pin!(PinnedItem {
+            item: MaybeUninit::<T>::uninit(),
+            _pin: PhantomPinned
+        });
         let mut mmio = self.fwcfg.0.borrow_mut();
 
         mmio.selector.write(u16::to_be(self.select));
@@ -117,11 +126,11 @@ impl<T: Copy> Iterator for FwCfgFileIterator<'_, T> {
         if offset > 0 {
             mmio.dma_transfer(0, offset as u32).ok()?;
         }
-        mmio.dma_transfer(&*out as *const _ as u64, itemsz as u32)
+        mmio.dma_transfer(&out.item as *const _ as u64, itemsz as u32)
             .ok()?;
         self.next += 1;
 
-        unsafe { Some(out.assume_init()) }
+        unsafe { Some(out.item.assume_init()) }
     }
 }
 
@@ -146,6 +155,7 @@ impl FwCfgMmio {
             control: u32::to_be(control),
             length: u32::to_be(size),
             address: u64::to_be(addr),
+            pin: PhantomPinned,
         });
 
         self.dmacontrol.write(u64::to_be(&*xfer as *const _ as u64));
