@@ -21,41 +21,74 @@ const ARM_SMCCC_TRNG_RND64: u32 = 0xc4000053;
 
 const MAX_BITS_PER_CALL: usize = 192;
 
-fn hvc32_call(fid: u32, arg: u32) -> i32 {
-    let mut ret: i32;
+fn current_el() -> u64 {
+    let mut l: u64;
     unsafe {
         asm!(
-            "hvc #0",
-
-            in("w0") fid,
-            in("w1") arg,
-
-            lateout("w0") ret,
-            lateout("w1") _,
-            lateout("w2") _,
-            lateout("w3") _,
-
-            options(nomem, nostack),
+            "mrs {reg}, CurrentEL",
+            reg = out(reg) l,
+            options(pure, nomem, nostack, preserves_flags)
         );
+    }
+    l >> 2
+}
+
+fn smccc_call(fid: u32, arg: u32, use_smc: bool) -> i32 {
+    let mut ret: i32;
+    if use_smc {
+        unsafe {
+            asm!(
+                "smc #0",
+
+                in("w0") fid,
+                in("w1") arg,
+
+                lateout("w0") ret,
+                lateout("w1") _,
+                lateout("w2") _,
+                lateout("w3") _,
+
+                options(nomem, nostack),
+            );
+        }
+    } else {
+        unsafe {
+            asm!(
+                "hvc #0",
+
+                in("w0") fid,
+                in("w1") arg,
+
+                lateout("w0") ret,
+                lateout("w1") _,
+                lateout("w2") _,
+                lateout("w3") _,
+
+                options(nomem, nostack),
+            );
+        }
     }
     ret
 }
 
-fn have_smccc() -> bool {
-    hvc32_call(PSCI_1_0_PSCI_VERSION, 0) >= PSCI_1_0_PSCI_VERSION_1_0
-        && hvc32_call(PSCI_1_0_PSCI_FEATURES, ARM_SMCCC_VERSION) == 0
-        && hvc32_call(ARM_SMCCC_VERSION, 0) >= ARM_SMCCC_VERSION_1_1
-        && hvc32_call(ARM_SMCCC_TRNG_VERSION, 0) >= ARM_SMCCC_TRNG_VERSION_1_0
-        && hvc32_call(ARM_SMCCC_TRNG_FEATURES, ARM_SMCCC_TRNG_RND64) == 0
+fn have_smccc(use_smc: bool) -> bool {
+    smccc_call(PSCI_1_0_PSCI_VERSION, 0, use_smc) >= PSCI_1_0_PSCI_VERSION_1_0
+        && smccc_call(PSCI_1_0_PSCI_FEATURES, ARM_SMCCC_VERSION, use_smc) == 0
+        && smccc_call(ARM_SMCCC_VERSION, 0, use_smc) >= ARM_SMCCC_VERSION_1_1
+        && smccc_call(ARM_SMCCC_TRNG_VERSION, 0, use_smc) >= ARM_SMCCC_TRNG_VERSION_1_0
+        && smccc_call(ARM_SMCCC_TRNG_FEATURES, ARM_SMCCC_TRNG_RND64, use_smc) == 0
 }
 
 pub struct Random {
     have_smccc: bool,
     have_rndr: bool,
+    use_smc: bool,
 }
 
 impl Random {
     pub fn new() -> Random {
+        let use_smc = current_el() == 2;
+
         let mut l: u64;
         unsafe {
             asm!(
@@ -67,8 +100,9 @@ impl Random {
         let rndr = (l >> ID_AA64ISAR0_RNDR_SHIFT) & 0xf != 0;
 
         Random {
-            have_smccc: have_smccc(),
+            have_smccc: have_smccc(use_smc),
             have_rndr: rndr,
+            use_smc: use_smc,
         }
     }
 
@@ -119,20 +153,38 @@ impl efiloader::Random for Random {
             let (mut k, mut l, mut m): (u64, u64, u64);
             let mut ret: u64;
 
-            unsafe {
-                asm!(
-                    "hvc #0",
+            if self.use_smc {
+                unsafe {
+                    asm!(
+                        "smc #0",
 
-                    in("w0") ARM_SMCCC_TRNG_RND64,
-                    in("w1") bits,
+                        in("w0") ARM_SMCCC_TRNG_RND64,
+                        in("w1") bits,
 
-                    lateout("x0") ret,
-                    lateout("x1") k,
-                    lateout("x2") l,
-                    lateout("x3") m,
+                        lateout("x0") ret,
+                        lateout("x1") k,
+                        lateout("x2") l,
+                        lateout("x3") m,
 
-                    options(nomem, nostack),
-                );
+                        options(nomem, nostack),
+                    );
+                }
+            } else {
+                unsafe {
+                    asm!(
+                        "hvc #0",
+
+                        in("w0") ARM_SMCCC_TRNG_RND64,
+                        in("w1") bits,
+
+                        lateout("x0") ret,
+                        lateout("x1") k,
+                        lateout("x2") l,
+                        lateout("x3") m,
+
+                        options(nomem, nostack),
+                    );
+                }
             }
             if ret != 0 {
                 return false;

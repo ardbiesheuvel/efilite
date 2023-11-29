@@ -30,7 +30,15 @@
 	csel		x6, x6, x7, lt
 	orr		x1, x1, x6
 
-	msr		mair_el1, x0		// set up the 1:1 mapping
+	mrs		x6, CurrentEL		// enable VHE if running at EL2
+	tbz		x6, #3, 0f
+	mrs		x6, hcr_el2
+	orr		x6, x6, #1 << 34	// set E2H
+	orr		x6, x6, #1 << 27	// set TGE
+	msr		hcr_el2, x6
+	isb
+
+0:	msr		mair_el1, x0		// set up the 1:1 mapping
 	msr		tcr_el1, x1
 	msr		ttbr0_el1, x2
 	isb
@@ -39,10 +47,10 @@
 	ic		iallu			// invalidate the I-cache
 	dsb		nsh
 	isb
-	b		0f
+	b		2f
 
 	.section	".text", "ax", %progbits
-0:	msr		sctlr_el1, x3		// enable MMU and caches
+2:	msr		sctlr_el1, x3		// enable MMU and caches
 	msr		cpacr_el1, x4		// enable FP/SIMD
 	msr		vbar_el1, x5		// enable exception handling
 	isb
@@ -50,11 +58,11 @@
 	adr_l		x0, _data		// initialize the .data section
 	adr_l		x1, _edata
 	adr_l		x2, data_lma
-1:	cmp		x0, x1
+3:	cmp		x0, x1
 	b.ge		4f
 	ldp		q0, q1, [x2], #32
 	stp		q0, q1, [x0], #32
-	b		1b
+	b		3b
 
 4:	adr_l		x0, _bss_start		// wipe the .bss section
 	adr_l		x1, _bss_end
@@ -73,10 +81,17 @@
 	mov_i		x2, _avail
 	bl		efilite_main
 
+	mrs		x1, CurrentEL
+	tbnz		x1, #3, 8f
 7:	mov_i		x0, 0x84000008		// PSCI SYSTEM OFF
 	hvc		#0
 	wfi
 	b		7b
+
+8:	mov_i		x0, 0x84000008		// PSCI SYSTEM OFF
+	smc		#0
+	wfi
+	b		8b
 
 	.macro		vector_entry
 	.align		7
