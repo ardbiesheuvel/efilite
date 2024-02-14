@@ -13,8 +13,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: rustup target add aarch64-unknown-none
-    - run: sudo apt-get update && sudo apt-get install -y lld
+    - run: sudo apt-get update && sudo apt-get install -y lld llvm
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose -r && llvm-objcopy -O binary target/aarch64-unknown-none/release/efilite efilite.bin
+    - uses: actions/upload-artifact@v4
+      with:
+        name: efilite-mach-virt.img
+        path: efilite.bin
