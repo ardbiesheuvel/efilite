@@ -19,7 +19,6 @@ macro_rules! ldrange {
 
 mod console;
 mod fwcfg;
-mod initrd;
 mod mapper;
 mod pl031;
 mod psci;
