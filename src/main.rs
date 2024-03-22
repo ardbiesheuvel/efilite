@@ -26,6 +26,7 @@ mod rng;
 
 use core::mem::MaybeUninit;
 use core::{arch::global_asm, panic::PanicInfo};
+use core::ptr::addr_of_mut;
 use linked_list_allocator::LockedHeap;
 use log::{debug, error, info};
 
@@ -212,7 +213,7 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
     unsafe {
         static mut BSPOOL: [MaybeUninit<u8>; BSPOOL_SIZE] = [MaybeUninit::uninit(); BSPOOL_SIZE];
         memmap
-            .declare_pool(EfiBootServicesData, &mut BSPOOL)
+            .declare_pool(EfiBootServicesData, &mut *addr_of_mut!(BSPOOL))
             .expect("Failed to declare memory pool");
     }
 
@@ -233,7 +234,7 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
         #[link_section = ".rtdata"]
         static mut RTPOOL: [MaybeUninit<u8>; RTPOOL_SIZE] = [MaybeUninit::uninit(); RTPOOL_SIZE];
         memmap
-            .declare_pool(EfiRuntimeServicesData, &mut RTPOOL)
+            .declare_pool(EfiRuntimeServicesData, &mut *addr_of_mut!(RTPOOL))
             .expect("Failed to declare memory pool");
     }
 
