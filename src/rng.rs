@@ -2,6 +2,7 @@
 // Copyright 2022-2023 Google LLC
 // Author: Ard Biesheuvel <ardb@google.com>
 
+use crate::current_el;
 use core::arch::asm;
 
 const ID_AA64ISAR0_RNDR_SHIFT: usize = 60;
@@ -20,18 +21,6 @@ const ARM_SMCCC_TRNG_FEATURES: u32 = 0x84000051;
 const ARM_SMCCC_TRNG_RND64: u32 = 0xc4000053;
 
 const MAX_BITS_PER_CALL: usize = 192;
-
-fn current_el() -> u64 {
-    let mut l: u64;
-    unsafe {
-        asm!(
-            "mrs {reg}, CurrentEL",
-            reg = out(reg) l,
-            options(pure, nomem, nostack, preserves_flags)
-        );
-    }
-    l >> 2
-}
 
 fn smccc_call(fid: u32, arg: u32, use_smc: bool) -> i32 {
     let mut ret: i32;

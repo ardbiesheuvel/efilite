@@ -25,8 +25,8 @@ mod psci;
 mod rng;
 
 use core::mem::MaybeUninit;
-use core::{arch::global_asm, panic::PanicInfo};
 use core::ptr::addr_of_mut;
+use core::{arch::asm, arch::global_asm, panic::PanicInfo};
 use linked_list_allocator::LockedHeap;
 use log::{debug, error, info};
 
@@ -66,6 +66,18 @@ const SMBIOS3_GUID: Guid = guid!(
 
 #[global_allocator]
 pub static ALLOCATOR: LockedHeap = LockedHeap::empty();
+
+fn current_el() -> u64 {
+    let mut l: u64;
+    unsafe {
+        asm!(
+            "mrs {reg}, CurrentEL",
+            reg = out(reg) l,
+            options(pure, nomem, nostack, preserves_flags)
+        );
+    }
+    l >> 2
+}
 
 #[no_mangle]
 extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {

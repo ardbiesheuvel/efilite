@@ -5,14 +5,21 @@
 use efiloader::runtimeservices::ResetType;
 use efiloader::status::Status;
 
+use crate::current_el;
 use core::arch::asm;
 
 const PSCI_SYSTEM_OFF: u32 = 0x84000008;
 const PSCI_SYSTEM_RESET: u32 = 0x84000009;
 
 fn psci_call(fid: u32) {
-    unsafe {
-        asm!("hvc #0", in("x0") fid);
+    match current_el() {
+        1 => unsafe {
+            asm!("hvc #0", in("x0") fid);
+        },
+        2 => unsafe {
+            asm!("smc #0", in("x0") fid);
+        },
+        l => log::warn!("Unsupported EL {}\n", l),
     }
 }
 
