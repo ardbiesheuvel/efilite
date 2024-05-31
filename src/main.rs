@@ -130,11 +130,11 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
     let mut mapper = mapper::MemoryMapper::new();
 
     let (ro_flags, rw_flags, dev_flags) = {
-        let flags = Attributes::VALID | Attributes::NON_GLOBAL;
+        let flags = Attributes::VALID | Attributes::ACCESSED | Attributes::NON_GLOBAL;
         (
-            flags | Attributes::NORMAL | Attributes::READ_ONLY,
-            flags | Attributes::NORMAL | Attributes::EXECUTE_NEVER,
-            flags | Attributes::DEVICE_NGNRE | Attributes::EXECUTE_NEVER,
+            flags | Attributes::ATTRIBUTE_INDEX_1 | Attributes::INNER_SHAREABLE | Attributes::READ_ONLY,
+            flags | Attributes::ATTRIBUTE_INDEX_1 | Attributes::INNER_SHAREABLE | Attributes::PXN,
+            flags | Attributes::ATTRIBUTE_INDEX_0 | Attributes::PXN | Attributes::UXN,
         )
     };
 
@@ -193,7 +193,7 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
     info!("Remapping statically allocated regions:\n");
     mapper.map_reserved_range(&ldrange!(_rtcode_start, _rtcode_end), ro_flags);
     mapper.map_reserved_range(&ldrange!(_dtb_end, _rtdata_end), rw_flags);
-    mapper.map_range(&dtb, ro_flags | Attributes::EXECUTE_NEVER);
+    mapper.map_range(&dtb, ro_flags | Attributes::PXN);
 
     // Switch to the new ID map so we can use all of DRAM
     mapper.activate();

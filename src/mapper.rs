@@ -20,7 +20,11 @@ pub(crate) struct MemoryMapper {
 impl MemoryMapper {
     pub(crate) fn new() -> MemoryMapper {
         MemoryMapper {
-            idmap: RefCell::new(idmap::IdMap::new(ASID, PAGING_ROOT_LEVEL)),
+            idmap: RefCell::new(idmap::IdMap::new(
+                ASID,
+                PAGING_ROOT_LEVEL,
+                TranslationRegime::El1And0,
+            )),
             reserved: Vec::new(),
         }
     }
@@ -33,8 +37,8 @@ impl MemoryMapper {
         match attributes & (EFI_MEMORY_RO | EFI_MEMORY_XP) {
             0 => Attributes::empty(),
             EFI_MEMORY_RO => Attributes::READ_ONLY,
-            EFI_MEMORY_XP => Attributes::EXECUTE_NEVER,
-            _ => Attributes::EXECUTE_NEVER | Attributes::READ_ONLY,
+            EFI_MEMORY_XP => Attributes::PXN,
+            _ => Attributes::PXN | Attributes::READ_ONLY,
         }
     }
 
@@ -43,7 +47,7 @@ impl MemoryMapper {
         if flags & Attributes::READ_ONLY.bits() != 0 {
             ret |= EFI_MEMORY_RO;
         }
-        if flags & Attributes::EXECUTE_NEVER.bits() != 0 {
+        if flags & Attributes::PXN.bits() != 0 {
             ret |= EFI_MEMORY_XP;
         }
         ret
@@ -112,7 +116,7 @@ impl efiloader::MemoryMapper for MemoryMapper {
 
     fn query_range(&self, range: &Range<usize>) -> Option<u64> {
         let r = MemoryRegion::new(range.start, range.end);
-        let mask = Attributes::READ_ONLY | Attributes::EXECUTE_NEVER;
+        let mask = Attributes::READ_ONLY | Attributes::PXN;
         let mut any = Attributes::empty();
         let mut all = mask;
 
