@@ -180,11 +180,10 @@ impl efiloader::Random for Random {
             }
 
             for s in [m, l, k] {
-                // SMCCC TRNG populates registers from the MSB end
-                let n = 8 - b.len().min(8);
+                let n = b.len().min(8);
                 let v: &mut [u8];
-                (v, b) = b.split_at_mut(8 - n);
-                v.copy_from_slice(&s.to_le_bytes()[n..8]);
+                (v, b) = b.split_at_mut(n);
+                v.copy_from_slice(&s.to_le_bytes()[0..n]);
 
                 if b.len() == 0 {
                     break;
