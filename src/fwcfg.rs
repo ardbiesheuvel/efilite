@@ -576,8 +576,8 @@ pub struct FwCfgFileLoader<'a> {
     preload: Box<[u8]>,
 }
 
-impl<'a> FwCfgFileLoader<'a> {
-    fn new(size: usize, data_cfg: u16, fwcfg: &'a FwCfg, preload_size: usize) -> FwCfgFileLoader {
+impl FwCfgFileLoader<'_> {
+    fn new(size: usize, data_cfg: u16, fwcfg: &FwCfg, preload_size: usize) -> FwCfgFileLoader {
         let preload_size = size.min(preload_size);
         let mut preload = Vec::<u8>::new();
         if preload_size > 0 {
