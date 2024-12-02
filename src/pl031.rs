@@ -68,7 +68,10 @@ fn time_from_ts(ts: u32) -> Time {
 
 extern "efiapi" fn get_time(time: *mut Time, _capabilities: *mut TimeCapabilities) -> Status {
     // Safe because get_time() is never exposed unless _RTC has been written
-    let rtc = unsafe { _RTC.assume_init_ref() };
+    let rtc = unsafe {
+        let rtc = &raw mut _RTC;
+        (*rtc).assume_init_ref()
+    };
     let t = time_from_ts(rtc.read());
 
     unsafe {
@@ -78,7 +81,10 @@ extern "efiapi" fn get_time(time: *mut Time, _capabilities: *mut TimeCapabilitie
 }
 
 pub fn init(base: usize) -> GetTime {
-    let rtc = unsafe { _RTC.write(VolBox::<u32, Allow, Allow>::new(base as *mut u32)) };
+    let rtc = unsafe {
+        let rtc = &raw mut _RTC;
+        (*rtc).write(VolBox::<u32, Allow, Allow>::new(base as *mut u32))
+    };
 
     log::trace!("{:?}\n", time_from_ts(rtc.read()));
     get_time

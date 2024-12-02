@@ -38,14 +38,15 @@ pub struct DumbSerialConsole {
 unsafe impl Sync for DumbSerialConsole {}
 
 pub fn init(base: &Range<usize>) -> &'static DumbSerialConsole {
-    // Statically allocated so we can init the console before the heap
-    static mut CON: OnceCell<DumbSerialConsole> = OnceCell::new();
-
     // SAFETY: the code is single threaded and does not recurse, so the first invocation will
     // run to completion before this code is ever executed again.
     unsafe {
+        // Statically allocated so we can init the console before the heap
+        static mut CON: OnceCell<DumbSerialConsole> = OnceCell::new();
+
         let v = VolBox::<u32, Deny, Allow>::new(base.start as *mut u32);
-        CON.get_or_init(|| DumbSerialConsole {
+        let c = &raw mut CON;
+        (*c).get_or_init(|| DumbSerialConsole {
             base: base.start,
             out: RefCell::new(DumbSerialConsoleWriter(v)),
         })
