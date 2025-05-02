@@ -126,14 +126,13 @@ impl efiloader::MemoryMapper for MemoryMapper {
 
         let mut c = |_: &MemoryRegion, d: &Descriptor, _: usize| {
             if d.is_valid() {
-                d.flags().map_or(Err(()), |f| {
-                    any |= f & mask;
-                    all &= f;
-                    if any != all {
-                        return Err(());
-                    };
-                    Ok(())
-                })
+                let f = d.flags();
+                any |= f & mask;
+                all &= f;
+                if any != all {
+                    return Err(());
+                };
+                Ok(())
             } else {
                 Err(())
             }

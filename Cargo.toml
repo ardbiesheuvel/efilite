@@ -12,7 +12,7 @@ mmio = "2.1.0"
 fdt = "0.1.5"
 once_cell = { version = "1.18.0", default-features = false, features = ["alloc"]  }
 efiloader = "0.0.1"
-aarch64-paging = "0.7.0"
+aarch64-paging = "0.9.1"
 aarch64-intrinsics = { version = "1.0.0", optional = true }
 
 [features]
