@@ -4,6 +4,7 @@
 
 use crate::current_el;
 use core::arch::asm;
+use core::cell::RefCell;
 
 const ID_AA64ISAR0_RNDR_SHIFT: usize = 60;
 
@@ -72,10 +73,14 @@ pub struct Random {
     have_smccc: bool,
     have_rndr: bool,
     use_smc: bool,
+    seed: RefCell<u64>,
 }
 
 impl Random {
-    pub fn new() -> Random {
+    pub fn new<F>(fallback: F) -> Option<Random>
+    where
+      F: Fn() -> Option<u64>
+    {
         let use_smc = current_el() == 2;
 
         let mut l: u64;
@@ -87,12 +92,19 @@ impl Random {
             );
         }
         let rndr = (l >> ID_AA64ISAR0_RNDR_SHIFT) & 0xf != 0;
+        let smccc = have_smccc(use_smc);
+        let mut seed = 0u64;
 
-        Random {
-            have_smccc: have_smccc(use_smc),
+        if !rndr && !smccc {
+            seed = fallback()?;
+        }
+
+        Some(Random {
+            have_smccc: smccc,
             have_rndr: rndr,
             use_smc: use_smc,
-        }
+            seed: RefCell::new(seed),
+        })
     }
 
     fn read_rndr() -> Option<u64> {
@@ -115,6 +127,40 @@ impl Random {
             None
         }
     }
+
+    fn get_pseudo_random_bytes(&self, bytes: &mut [u8]) -> bool {
+        let mut s = self.seed.borrow_mut();
+        let mut b: &mut [u8] = bytes;
+
+        if *s == 0 {
+            return false;
+        }
+
+        while b.len() > 0 {
+            let l = unsafe {
+                let mut l: u64;
+                asm!(
+                    "dup   v0.2d, {s}",
+                    "dup   v1.4s, {m:w}",
+                    "aese  v0.16b, v1.16b",
+                    "aesmc v0.16b, v0.16b",
+                    "mov   {s}, v0.d[0]",
+                    "mov   {l}, v0.d[1]",
+                    s = inout(reg) *s,
+                    m = in(reg) 0xaa55,
+                    l = out(reg) l,
+                    out("v0") _,
+                    out("v1") _,
+                );
+                l
+            };
+            let n = b.len().min(core::mem::size_of_val(&l));
+            let v: &mut [u8];
+            (v, b) = b.split_at_mut(n);
+            v.copy_from_slice(&l.to_le_bytes()[..n]);
+        }
+        true
+    }
 }
 
 impl efiloader::Random for Random {
@@ -134,7 +180,10 @@ impl efiloader::Random for Random {
         }
 
         if !self.have_smccc {
-            return false;
+            if use_raw {
+                return false;
+            }
+            return self.get_pseudo_random_bytes(bytes);
         }
 
         while b.len() > 0 {

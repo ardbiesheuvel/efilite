@@ -4,7 +4,7 @@ rustflags = [
 	"-C", "linker-flavor=ld.lld",
 	"-C", "link-arg=-Tsrc/efilite.lds",
 	"-C", "link-arg=--orphan-handling=error",
-	"-C", "target-feature=+rand,+bti",
+	"-C", "target-feature=+rand,+bti,+aes",
 #	"-Z", "branch-protection=bti"
 ]
 

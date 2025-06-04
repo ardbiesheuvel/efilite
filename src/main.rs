@@ -251,7 +251,12 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
     }
 
     let con = con.map(|c| c as &(dyn SimpleConsole));
-    let rng = Some(rng::Random::new());
+    let rng = rng::Random::new(|| {
+        let s = fdt.find_node("/chosen")?.property("kaslr-seed")?.as_usize()?;
+
+        log::warn!("Falling back to pseudo-random RNG\n");
+        Some(s as u64)
+    });
     let efi = efiloader::init(con, memmap, mapper, rng).expect("Failed to init EFI runtime");
 
     // Register our PSCI based ResetSystem implementation
