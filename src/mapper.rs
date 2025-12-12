@@ -15,6 +15,7 @@ const PAGING_ROOT_LEVEL: usize = 1; // must match the page tables in flash
 pub(crate) struct MemoryMapper {
     idmap: RefCell<idmap::IdMap>,
     reserved: Vec<Range<usize>>,
+    ttbr: usize,
 }
 
 impl MemoryMapper {
@@ -26,11 +27,12 @@ impl MemoryMapper {
                 TranslationRegime::El1And0,
             )),
             reserved: Vec::new(),
+            ttbr: 0usize,
         }
     }
 
     pub(crate) fn activate(&mut self) {
-        unsafe { self.idmap.borrow_mut().activate() }
+        self.ttbr = unsafe { self.idmap.borrow_mut().activate() }
     }
 
     fn match_efi_attributes(attributes: u64) -> Attributes {
@@ -97,7 +99,7 @@ impl efiloader::MemoryMapper for MemoryMapper {
                     // SAFETY: this code and the current stack are covered by the initial
                     // mapping in NOR flash so deactivating this mapping is safe
                     unsafe {
-                        idmap.deactivate();
+                        idmap.deactivate(self.ttbr);
                     }
 
                     let e = idmap.modify_range(&r, &c);
