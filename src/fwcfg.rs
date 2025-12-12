@@ -260,7 +260,7 @@ impl FwCfg {
         Box::leak(Box::new(FwCfg(RefCell::new(FwCfgMmio::new(addr)))))
     }
 
-    fn files(&self) -> FwCfgFileIterator<FwCfgFile> {
+    fn files(&self) -> FwCfgFileIterator<'_, FwCfgFile> {
         let size = u32::to_be(self.get_file_size(CFG_FILE_DIR) as u32);
         FwCfgFileIterator {
             count: size,
@@ -362,7 +362,7 @@ impl FwCfg {
         size_cfg: u16,
         data_cfg: u16,
         preload_bytes: usize,
-    ) -> Option<FwCfgFileLoader> {
+    ) -> Option<FwCfgFileLoader<'_>> {
         let size = self.get_file_size(size_cfg);
         if size == 0 {
             return None;
@@ -370,12 +370,12 @@ impl FwCfg {
         Some(FwCfgFileLoader::new(size, data_cfg, self, preload_bytes))
     }
 
-    pub fn get_kernel_loader(&self) -> Option<FwCfgFileLoader> {
+    pub fn get_kernel_loader(&self) -> Option<FwCfgFileLoader<'_>> {
         // Cache the first 1k of the image to ease random access to the PE header
         self.get_loader(CFG_KERNEL_SIZE, CFG_KERNEL_DATA, 1024)
     }
 
-    pub fn get_initrd_loader(&self) -> Option<FwCfgFileLoader> {
+    pub fn get_initrd_loader(&self) -> Option<FwCfgFileLoader<'_>> {
         self.get_loader(CFG_INITRD_SIZE, CFG_INITRD_DATA, 0)
     }
 
@@ -577,7 +577,7 @@ pub struct FwCfgFileLoader<'a> {
 }
 
 impl FwCfgFileLoader<'_> {
-    fn new(size: usize, data_cfg: u16, fwcfg: &FwCfg, preload_size: usize) -> FwCfgFileLoader {
+    fn new(size: usize, data_cfg: u16, fwcfg: &FwCfg, preload_size: usize) -> FwCfgFileLoader<'_> {
         let preload_size = size.min(preload_size);
         let mut preload = Vec::<u8>::new();
         if preload_size > 0 {

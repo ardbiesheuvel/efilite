@@ -132,7 +132,10 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
     let (ro_flags, rw_flags, dev_flags) = {
         let flags = Attributes::VALID | Attributes::ACCESSED | Attributes::NON_GLOBAL;
         (
-            flags | Attributes::ATTRIBUTE_INDEX_1 | Attributes::INNER_SHAREABLE | Attributes::READ_ONLY,
+            flags
+                | Attributes::ATTRIBUTE_INDEX_1
+                | Attributes::INNER_SHAREABLE
+                | Attributes::READ_ONLY,
             flags | Attributes::ATTRIBUTE_INDEX_1 | Attributes::INNER_SHAREABLE | Attributes::PXN,
             flags | Attributes::ATTRIBUTE_INDEX_0 | Attributes::PXN | Attributes::UXN,
         )
@@ -250,9 +253,12 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
             .expect("Failed to declare memory pool");
     }
 
-    let con = con.map(|c| c as &(dyn SimpleConsole));
+    let con = con.map(|c| c as &dyn SimpleConsole);
     let rng = rng::Random::new(|| {
-        let s = fdt.find_node("/chosen")?.property("kaslr-seed")?.as_usize()?;
+        let s = fdt
+            .find_node("/chosen")?
+            .property("kaslr-seed")?
+            .as_usize()?;
 
         log::warn!("Falling back to pseudo-random RNG\n");
         Some(s as u64)

@@ -126,8 +126,8 @@ vector_table:
 	.set		.L_TCR_SH_INNER,	0x3 << 12
 	.set		.L_TCR_RGN_OWB,		0x1 << 10
 	.set		.L_TCR_RGN_IWB,		0x1 << 8
-	.set		.Ltcrval,	.L_TCR_TG0_4KB | .L_TCR_TG1_4KB | .L_TCR_EPD1 | .L_TCR_RGN_OWB
-	.set		.Ltcrval, .Ltcrval | .L_TCR_RGN_IWB | .L_TCR_SH_INNER | (64 - 39) // TCR_T0SZ
+	.set		.L0,		.L_TCR_TG0_4KB | .L_TCR_TG1_4KB | .L_TCR_EPD1 | .L_TCR_RGN_OWB
+	.set		.Ltcrval, .L0 | .L_TCR_RGN_IWB | .L_TCR_SH_INNER | (64 - 39) // TCR_T0SZ
 
 	.set		.L_SCTLR_ELx_I,		0x1 << 12
 	.set		.L_SCTLR_ELx_SA,	0x1 << 3
@@ -138,8 +138,8 @@ vector_table:
 	.set		.L_SCTLR_EL1_SED,	0x1 << 8
 	.set		.L_SCTLR_EL1_ITD,	0x1 << 7
 	.set		.L_SCTLR_EL1_RES1,	(0x1 << 11) | (0x1 << 20) | (0x1 << 22) | (0x1 << 28) | (0x1 << 29)
-	.set		.Lsctlrval, .L_SCTLR_ELx_M | .L_SCTLR_ELx_C | .L_SCTLR_ELx_SA | .L_SCTLR_EL1_ITD | .L_SCTLR_EL1_SED
-	.set		.Lsctlrval, .Lsctlrval | .L_SCTLR_ELx_I | .L_SCTLR_EL1_WXN | .L_SCTLR_EL1_SPAN | .L_SCTLR_EL1_RES1
+	.set		.L1, 		.L_SCTLR_ELx_M | .L_SCTLR_ELx_C | .L_SCTLR_ELx_SA | .L_SCTLR_EL1_ITD | .L_SCTLR_EL1_SED
+	.set		.Lsctlrval, .L1 | .L_SCTLR_ELx_I | .L_SCTLR_EL1_WXN | .L_SCTLR_EL1_SPAN | .L_SCTLR_EL1_RES1
 
 	.set		.L_CPACR_EL1_FPEN,	0x3 << 20
 	.set		.Lcpacrval, .L_CPACR_EL1_FPEN

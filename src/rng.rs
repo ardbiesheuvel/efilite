@@ -79,7 +79,7 @@ pub struct Random {
 impl Random {
     pub fn new<F>(fallback: F) -> Option<Random>
     where
-      F: Fn() -> Option<u64>
+        F: Fn() -> Option<u64>,
     {
         let use_smc = current_el() == 2;
 
