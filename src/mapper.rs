@@ -2,6 +2,7 @@
 // Copyright 2023 Google LLC
 // Author: Ard Biesheuvel <ardb@google.com>
 
+use aarch64_paging::descriptor::{Attributes, Descriptor, UpdatableDescriptor};
 use aarch64_paging::{paging::*, *};
 use efiloader::memorytype::*;
 
@@ -89,7 +90,7 @@ impl efiloader::MemoryMapper for MemoryMapper {
             return Err("Cannot remap reserved range");
         }
 
-        let c = |_: &MemoryRegion, d: &mut Descriptor, _: usize| Ok(d.modify_flags(set, clr));
+        let c = |_: &MemoryRegion, d: &mut UpdatableDescriptor| d.modify_flags(set, clr);
 
         let mut idmap = self.idmap.borrow_mut();
         idmap

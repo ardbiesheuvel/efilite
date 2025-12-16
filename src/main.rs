@@ -36,7 +36,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "use_optimized_intrinsics")]
 extern crate aarch64_intrinsics;
 
-use aarch64_paging::paging::Attributes;
+use aarch64_paging::descriptor::Attributes;
 
 use efiloader::memmap::*;
 use efiloader::memorytype::EfiMemoryType::*;
