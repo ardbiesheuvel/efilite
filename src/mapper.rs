@@ -2,7 +2,7 @@
 // Copyright 2023 Google LLC
 // Author: Ard Biesheuvel <ardb@google.com>
 
-use aarch64_paging::descriptor::{Attributes, Descriptor, UpdatableDescriptor};
+use aarch64_paging::descriptor::{El1Attributes, Descriptor, UpdatableDescriptor};
 use aarch64_paging::{paging::*, *};
 use efiloader::memorytype::*;
 
@@ -14,7 +14,7 @@ const ASID: usize = 1;
 const PAGING_ROOT_LEVEL: usize = 1; // must match the page tables in flash
 
 pub(crate) struct MemoryMapper {
-    idmap: RefCell<idmap::IdMap>,
+    idmap: RefCell<idmap::IdMap<El1And0>>,
     reserved: Vec<Range<usize>>,
     ttbr: usize,
 }
@@ -22,11 +22,7 @@ pub(crate) struct MemoryMapper {
 impl MemoryMapper {
     pub(crate) fn new() -> MemoryMapper {
         MemoryMapper {
-            idmap: RefCell::new(idmap::IdMap::new(
-                ASID,
-                PAGING_ROOT_LEVEL,
-                TranslationRegime::El1And0,
-            )),
+            idmap: RefCell::new(idmap::IdMap::with_asid(ASID, PAGING_ROOT_LEVEL, El1And0)),
             reserved: Vec::new(),
             ttbr: 0usize,
         }
@@ -36,27 +32,27 @@ impl MemoryMapper {
         self.ttbr = unsafe { self.idmap.borrow_mut().activate() }
     }
 
-    fn match_efi_attributes(attributes: u64) -> Attributes {
+    fn match_efi_attributes(attributes: u64) -> El1Attributes {
         match attributes & (EFI_MEMORY_RO | EFI_MEMORY_XP) {
-            0 => Attributes::empty(),
-            EFI_MEMORY_RO => Attributes::READ_ONLY,
-            EFI_MEMORY_XP => Attributes::PXN,
-            _ => Attributes::PXN | Attributes::READ_ONLY,
+            0 => El1Attributes::empty(),
+            EFI_MEMORY_RO => El1Attributes::READ_ONLY,
+            EFI_MEMORY_XP => El1Attributes::PXN,
+            _ => El1Attributes::PXN | El1Attributes::READ_ONLY,
         }
     }
 
     fn get_attr_from_flags(flags: usize) -> u64 {
         let mut ret: u64 = 0;
-        if flags & Attributes::READ_ONLY.bits() != 0 {
+        if flags & El1Attributes::READ_ONLY.bits() != 0 {
             ret |= EFI_MEMORY_RO;
         }
-        if flags & Attributes::PXN.bits() != 0 {
+        if flags & El1Attributes::PXN.bits() != 0 {
             ret |= EFI_MEMORY_XP;
         }
         ret
     }
 
-    pub(crate) fn map_range(&self, r: &Range<usize>, flags: Attributes) {
+    pub(crate) fn map_range(&self, r: &Range<usize>, flags: El1Attributes) {
         let mr = MemoryRegion::new(r.start, r.end);
         self.idmap
             .borrow_mut()
@@ -65,7 +61,7 @@ impl MemoryMapper {
         log::info!("[{mr}] {flags:?}\n");
     }
 
-    pub(crate) fn map_reserved_range(&mut self, r: &Range<usize>, flags: Attributes) {
+    pub(crate) fn map_reserved_range(&mut self, r: &Range<usize>, flags: El1Attributes) {
         self.reserved.push(r.start..r.end);
         self.map_range(r, flags)
     }
@@ -90,7 +86,7 @@ impl efiloader::MemoryMapper for MemoryMapper {
             return Err("Cannot remap reserved range");
         }
 
-        let c = |_: &MemoryRegion, d: &mut UpdatableDescriptor| d.modify_flags(set, clr);
+        let c = |_: &MemoryRegion, d: &mut UpdatableDescriptor<El1Attributes>| d.modify_flags(set, clr);
 
         let mut idmap = self.idmap.borrow_mut();
         idmap
@@ -119,15 +115,15 @@ impl efiloader::MemoryMapper for MemoryMapper {
 
     fn query_range(&self, range: &Range<usize>) -> Option<u64> {
         let r = MemoryRegion::new(range.start, range.end);
-        let mask = Attributes::READ_ONLY | Attributes::PXN;
-        let mut any = Attributes::empty();
+        let mask = El1Attributes::READ_ONLY | El1Attributes::PXN;
+        let mut any = El1Attributes::empty();
         let mut all = mask;
 
         if self.range_is_reserved(range) {
             return None;
         }
 
-        let mut c = |_: &MemoryRegion, d: &Descriptor, _: usize| {
+        let mut c = |_: &MemoryRegion, d: &Descriptor<El1Attributes>, _: usize| {
             if d.is_valid() {
                 let f = d.flags();
                 any |= f & mask;

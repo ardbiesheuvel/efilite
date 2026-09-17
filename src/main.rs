@@ -36,7 +36,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "use_optimized_intrinsics")]
 extern crate aarch64_intrinsics;
 
-use aarch64_paging::descriptor::Attributes;
+use aarch64_paging::descriptor::El1Attributes;
 
 use efiloader::memmap::*;
 use efiloader::memorytype::EfiMemoryType::*;
@@ -130,14 +130,14 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
     let mut mapper = mapper::MemoryMapper::new();
 
     let (ro_flags, rw_flags, dev_flags) = {
-        let flags = Attributes::VALID | Attributes::ACCESSED | Attributes::NON_GLOBAL;
+        let flags = El1Attributes::VALID | El1Attributes::ACCESSED | El1Attributes::NON_GLOBAL;
         (
             flags
-                | Attributes::ATTRIBUTE_INDEX_1
-                | Attributes::INNER_SHAREABLE
-                | Attributes::READ_ONLY,
-            flags | Attributes::ATTRIBUTE_INDEX_1 | Attributes::INNER_SHAREABLE | Attributes::PXN,
-            flags | Attributes::ATTRIBUTE_INDEX_0 | Attributes::PXN | Attributes::UXN,
+                | El1Attributes::ATTRIBUTE_INDEX_1
+                | El1Attributes::INNER_SHAREABLE
+                | El1Attributes::READ_ONLY,
+            flags | El1Attributes::ATTRIBUTE_INDEX_1 | El1Attributes::INNER_SHAREABLE | El1Attributes::PXN,
+            flags | El1Attributes::ATTRIBUTE_INDEX_0 | El1Attributes::PXN | El1Attributes::UXN,
         )
     };
 
@@ -196,7 +196,7 @@ extern "C" fn efilite_main(base: *mut u8, used: isize, avail: usize) {
     info!("Remapping statically allocated regions:\n");
     mapper.map_reserved_range(&ldrange!(_rtcode_start, _rtcode_end), ro_flags);
     mapper.map_reserved_range(&ldrange!(_dtb_end, _rtdata_end), rw_flags);
-    mapper.map_range(&dtb, ro_flags | Attributes::PXN);
+    mapper.map_range(&dtb, ro_flags | El1Attributes::PXN);
 
     // Switch to the new ID map so we can use all of DRAM
     mapper.activate();
